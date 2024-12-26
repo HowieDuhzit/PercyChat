@@ -14,7 +14,7 @@ import { getChatResponseStream } from "@/features/chat/openAiChat";
 import { M_PLUS_2, Montserrat } from "next/font/google";
 import { Introduction } from "@/components/introduction";
 import { Menu } from "@/components/menu";
-import { GitHubLink } from "@/components/githubLink";
+//import { GitHubLink } from "@/components/githubLink";
 import { Meta } from "@/components/meta";
 import { ElevenLabsParam, DEFAULT_ELEVEN_LABS_PARAM } from "@/features/constants/elevenLabsParam";
 import { buildUrl } from "@/utils/buildUrl";
@@ -105,7 +105,7 @@ export default function Home() {
       // document.body.style.backgroundSize = 'cover';
       // document.body.style.backgroundPosition = 'center';
     } else {
-      document.body.style.backgroundImage = `url(${buildUrl("/bg-c.png")})`;
+      document.body.style.backgroundImage = `url(${buildUrl("/d34e0536-6a2f-4c75-a4e5-bea2ca591861.jpg")})`;
     }
   }, [backgroundImage]);
 
@@ -354,7 +354,7 @@ export default function Home() {
         onChatMessage={handleSendChat}
         onChangeOpenRouterKey={handleOpenRouterKeyChange}
       />
-      <GitHubLink />
+      {/* <GitHubLink /> */}
     </div>
   );
 }

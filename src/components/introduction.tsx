@@ -29,49 +29,10 @@ export const Introduction = ({ openAiKey, elevenLabsKey, onChangeAiKey, onChange
       <div className="mx-auto my-auto max-w-3xl max-h-full p-24 overflow-auto bg-white rounded-16">
         <div className="my-24">
           <div className="my-8 font-bold typography-20 text-secondary ">
-            About ChatVRM
+            Talk to Percy
           </div>
           <div>
-            You can enjoy conversations with 3D characters using only a web browser using a microphone, text input, and speech synthesis. You can also change the character (VRM), set the personality, and adjust the voice.
-          </div>
-        </div>
-        <div className="my-24">
-          <div className="my-8 font-bold typography-20 text-secondary">
-            Technology
-          </div>
-          <div>
-            <Link
-              url={"https://github.com/pixiv/three-vrm"}
-              label={"@pixiv/three-vrm"}
-            />&nbsp;
-            is used for displaying and manipulating 3D models,
-            &nbsp;<Link
-              url={
-                "https://openrouter.ai/"
-              }
-              label={"OpenRouter"}
-            />&nbsp;
-            is used for LLM access, and 
-            &nbsp;<Link url={"https://beta.elevenlabs.io/"} label={"ElevenLabs"} />&nbsp;
-            is used for text to speech.
-          </div>
-          <div className="my-16">
-            The source code for this demo is available on GitHub. Feel free to experiment with changes and modifications!
-            <br />
-            Repository:
-            &nbsp;<Link
-              url={"https://github.com/zoan37/ChatVRM"}
-              label={"https://github.com/zoan37/ChatVRM"}
-            />
-          </div>
-        </div>
-
-        <div className="my-24">
-          <div className="my-8 font-bold typography-20 text-secondary">
-            Precautions for use
-          </div>
-          <div>
-            Do not intentionally induce discriminatory or violent remarks, or remarks that demean a specific person. Also, when replacing characters using a VRM model, please follow the model&apos;s terms of use.
+            You can enjoy conversations with Percy using only a web browser using a microphone, text input, and speech synthesis.
           </div>
         </div>
         <div className="my-24">
