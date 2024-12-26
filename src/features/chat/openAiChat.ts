@@ -53,8 +53,8 @@ export async function getChatResponseStream(
       try {
 
         const OPENROUTER_API_KEY = openRouterKey;
-        const YOUR_SITE_URL = 'https://chat-vrm-window.vercel.app/';
-        const YOUR_SITE_NAME = 'ChatVRM';
+        const YOUR_SITE_URL = 'https://chat.percyguin.co.uk/';
+        const YOUR_SITE_NAME = 'Percy';
 
         let isStreamed = false;
         const generation = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -68,7 +68,7 @@ export async function getChatResponseStream(
           body: JSON.stringify({
             // "model": "cohere/command",
             // "model": "openai/gpt-3.5-turbo",
-            // "model": "cohere/command-r-plus",
+            //"model": "google/gemini-flash-1.5-exp",
             "model": "anthropic/claude-3.5-sonnet:beta",
             "messages": messages,
             "temperature": 0.7,
