@@ -4,7 +4,7 @@ export const Meta = () => {
   const title = "Percy Guin";
   const description =
     "Enjoy conversations with Percy Guin";
-  const imageUrl = "/card.png";
+  const imageUrl = "https://chat.percyguin.co.uk/card.png";
   return (
     <Head>
       <title>{title}</title>
