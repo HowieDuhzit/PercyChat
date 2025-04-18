@@ -210,6 +210,7 @@ export const Settings = ({
   // Add handler for model change
   const handleElevenLabsModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const modelId = event.target.value;
+    console.log("Settings - handleElevenLabsModelChange called with modelId:", modelId);
     // Update the model in the ElevenLabsParam
     onChangeElevenLabsModel(modelId);
   };
@@ -241,7 +242,7 @@ export const Settings = ({
         setElevenLabsVoices(data.voices || []);
         
         // Use the new voice
-        onChangeElevenLabsModel(voiceId);
+        onChangeElevenLabsVoice({ target: { value: voiceId } } as React.ChangeEvent<HTMLSelectElement>);
       }
     } catch (error) {
       console.error("Error adding voice from library:", error);

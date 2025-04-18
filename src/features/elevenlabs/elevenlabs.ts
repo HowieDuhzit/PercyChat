@@ -96,6 +96,13 @@ export async function speakText(
     requestBody.voice_settings.speaker_boost = speakerBoost;
   }
 
+  console.log("ElevenLabs request:", {
+    voiceId,
+    modelId: requestBody.model_id,
+    text: text.substring(0, 50) + (text.length > 50 ? "..." : ""),
+    settings: requestBody.voice_settings
+  });
+
   try {
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream`,
@@ -117,6 +124,10 @@ export async function speakText(
     }
 
     const audioBlob = await response.blob();
+    console.log("ElevenLabs response: Audio blob received", { 
+      size: audioBlob.size, 
+      type: audioBlob.type 
+    });
     return audioBlob;
   } catch (error) {
     console.error("Error in speakText:", error);

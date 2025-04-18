@@ -15,6 +15,12 @@ export async function speakCharacter(
     return;
   }
 
+  console.log("speakCharacter function called with parameters:", {
+    screenplay: typeof screenplay === 'object' ? "screenplay object" : screenplay,
+    hasElevenLabsKey: !!elevenLabsKey,
+    elevenLabsParam
+  });
+
   // Handle both array and single object format for screenplay
   const scenes = Array.isArray(screenplay) ? screenplay : [screenplay];
 

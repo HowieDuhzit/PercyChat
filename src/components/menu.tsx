@@ -112,6 +112,9 @@ export const Menu = ({
 
   const handleElevenLabsModelChange = useCallback(
     (modelId: string) => {
+      console.log("Menu - handleElevenLabsModelChange called with modelId:", modelId);
+      console.log("Current elevenLabsParam:", elevenLabsParam);
+      
       onChangeElevenLabsParam({
         ...elevenLabsParam,
         modelId: modelId

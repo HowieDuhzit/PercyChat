@@ -89,8 +89,22 @@ export default function Home() {
       const params = JSON.parse(
         window.localStorage.getItem("chatVRMParams") as string
       );
+      
+      console.log("Loading parameters from localStorage:", params);
+      
       setSystemPrompt(params.systemPrompt);
-      setElevenLabsParam(params.elevenLabsParam);
+      
+      // Make sure to correctly handle modelId when loading elevenLabsParam from localStorage
+      if (params.elevenLabsParam) {
+        const savedParam = params.elevenLabsParam;
+        // Ensure modelId is preserved from localStorage or set to default
+        if (!savedParam.modelId) {
+          savedParam.modelId = DEFAULT_ELEVEN_LABS_PARAM.modelId;
+        }
+        console.log("Setting elevenLabsParam from localStorage:", savedParam);
+        setElevenLabsParam(savedParam);
+      }
+      
       setChatLog(params.chatLog);
     }
     if (window.localStorage.getItem("elevenLabsKey")) {
@@ -124,9 +138,12 @@ export default function Home() {
 
   useEffect(() => {
     process.nextTick(() => {
+      const paramsToSave = { systemPrompt, elevenLabsParam, chatLog };
+      console.log("Saving to localStorage:", paramsToSave);
+      
       window.localStorage.setItem(
         "chatVRMParams",
-        JSON.stringify({ systemPrompt, elevenLabsParam, chatLog })
+        JSON.stringify(paramsToSave)
       )
 
       // store separately to be backward compatible with local storage data
@@ -167,6 +184,12 @@ export default function Home() {
       onStart?: () => void,
       onEnd?: () => void
     ) => {
+      console.log("Starting handleSpeakAi with parameters:", {
+        screenplay: screenplay,
+        hasElevenLabsKey: !!elevenLabsKey,
+        elevenLabsParam: elevenLabsParam
+      });
+      
       setIsAISpeaking(true);  // Set speaking state before starting
       try {
         await speakCharacter(
@@ -476,9 +499,26 @@ export default function Home() {
 
   const handleChangeElevenLabsParam = useCallback(
     (param: Partial<ElevenLabsParam>) => {
-      setElevenLabsParam((prev) => ({ ...prev, ...param }));
+      console.log("handleChangeElevenLabsParam called with:", param);
+      
+      const updatedParam = { ...elevenLabsParam, ...param };
+      console.log("New elevenLabsParam will be:", updatedParam);
+      
+      setElevenLabsParam(updatedParam);
+      
+      // Immediately save to localStorage for persistence
+      process.nextTick(() => {
+        window.localStorage.setItem(
+          "chatVRMParams",
+          JSON.stringify({ 
+            systemPrompt, 
+            elevenLabsParam: updatedParam, 
+            chatLog 
+          })
+        );
+      });
     },
-    []
+    [elevenLabsParam, systemPrompt, chatLog]
   );
 
   return (
