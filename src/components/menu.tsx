@@ -23,7 +23,6 @@ type Props = {
   onChangeElevenLabsKey: (key: string) => void;
   onChangeChatLog: (index: number, text: string) => void;
   onChangeElevenLabsParam: (param: ElevenLabsParam) => void;
-  onChangeElevenLabsVoice: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   onChangeKoeiromapParam: (param: KoeiroParam) => void;
   onChangeModel: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   onChangeHideActionPrompts: (checked: boolean) => void;
@@ -52,7 +51,6 @@ export const Menu = ({
   onChangeElevenLabsKey,
   onChangeChatLog,
   onChangeElevenLabsParam,
-  onChangeElevenLabsVoice,
   onChangeKoeiromapParam,
   onChangeModel,
   onChangeHideActionPrompts,
@@ -105,14 +103,9 @@ export const Menu = ({
 
   const handleElevenLabsVoiceChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => {
-      onChangeElevenLabsVoice(event);
-    },
-    [onChangeElevenLabsVoice]
-  );
-
-  const handleElevenLabsParamChange = useCallback(
-    (param: ElevenLabsParam) => {
-      onChangeElevenLabsParam(param);
+      onChangeElevenLabsParam({
+        voiceId: event.target.value
+      });
     },
     [onChangeElevenLabsParam]
   );
@@ -200,7 +193,6 @@ export const Menu = ({
           onChangeAiKey={handleAiKeyChange}
           onChangeElevenLabsKey={handleElevenLabsKeyChange}
           onChangeElevenLabsVoice={handleElevenLabsVoiceChange}
-          onChangeElevenLabsParam={handleElevenLabsParamChange}
           onChangeSystemPrompt={handleChangeSystemPrompt}
           onChangeChatLog={onChangeChatLog}
           onChangeKoeiroParam={handleChangeKoeiroParam}

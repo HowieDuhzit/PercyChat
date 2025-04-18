@@ -10,7 +10,7 @@ import {
   PRESET_D,
 } from "@/features/constants/koeiroParam";
 import { Link } from "./link";
-import { getVoices, getModels } from "@/features/elevenlabs/elevenlabs";
+import { getVoices } from "@/features/elevenlabs/elevenlabs";
 import { ElevenLabsParam } from "@/features/constants/elevenLabsParam";
 import { RestreamTokens } from "./restreamTokens";
 import Cookies from 'js-cookie';
@@ -32,7 +32,6 @@ type Props = {
   onChangeOpenRouterKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeElevenLabsKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeElevenLabsVoice: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-  onChangeElevenLabsParam: (param: ElevenLabsParam) => void;
   onChangeSystemPrompt: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   onChangeModel: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   onChangeHideActionPrompts: (checked: boolean) => void;
@@ -64,14 +63,6 @@ interface OpenRouterModel {
   };
   description?: string;
   context_length?: number;
-}
-
-// Add interface for ElevenLabs models
-interface ElevenLabsModel {
-  model_id: string;
-  name: string;
-  description?: string;
-  token_limit?: number;
 }
 
 export const Settings = ({
@@ -108,13 +99,6 @@ export const Settings = ({
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
   const [loading, setLoading] = useState(false);
-  const [elevenLabsModels, setElevenLabsModels] = useState<ElevenLabsModel[]>([]);
-  const [voiceStability, setVoiceStability] = useState(
-    elevenLabsParam.stability ?? 0.5
-  );
-  const [voiceSimilarityBoost, setVoiceSimilarityBoost] = useState(
-    elevenLabsParam.similarityBoost ?? 0.75
-  );
 
   // Check if keys are from environment variables
   const isOpenRouterKeyFromEnv = !openRouterKey || (openRouterKey === process.env.NEXT_PUBLIC_OPENROUTER_API_KEY && process.env.NEXT_PUBLIC_OPENROUTER_API_KEY);
@@ -130,17 +114,8 @@ export const Settings = ({
         const voices = data.voices;
         setElevenLabsVoices(voices);
       });
-      
-      // Also fetch available voice models
-      getModels(elevenLabsKey).then((data) => {
-        console.log('getModels');
-        console.log(data);
-        if (data && data.models) {
-          setElevenLabsModels(data.models);
-        }
-      });
     }
-  }, [elevenLabsKey, refreshTrigger]); // Added refreshTrigger as a dependency
+  }, [elevenLabsKey]); // Added elevenLabsKey as a dependency
 
   // Fetch models when OpenRouter key changes or when settings panel opens
   useEffect(() => {
@@ -193,35 +168,6 @@ export const Settings = ({
   const supportsImageGeneration = (model: OpenRouterModel): boolean => {
     if (!model.architecture?.output_modalities) return false;
     return model.architecture.output_modalities.includes("image");
-  };
-
-  // Handler for voice model change
-  const handleVoiceModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const newModelId = event.target.value;
-    onChangeElevenLabsParam({
-      ...elevenLabsParam,
-      modelId: newModelId
-    });
-  };
-
-  // Handler for voice stability change
-  const handleStabilityChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const stability = parseFloat(event.target.value);
-    setVoiceStability(stability);
-    onChangeElevenLabsParam({
-      ...elevenLabsParam,
-      stability
-    });
-  };
-
-  // Handler for voice similarity boost change
-  const handleSimilarityBoostChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const similarityBoost = parseFloat(event.target.value);
-    setVoiceSimilarityBoost(similarityBoost);
-    onChangeElevenLabsParam({
-      ...elevenLabsParam,
-      similarityBoost
-    });
   };
 
   return (
@@ -384,7 +330,7 @@ export const Settings = ({
               Select among the voices in ElevenLabs (including custom voices):
             </div>
             <div className="my-8">
-              <select className="h-40 px-8 w-full bg-surface3 hover:bg-surface3-hover rounded-4"
+              <select className="h-40 px-8"
                 id="select-dropdown"
                 onChange={onChangeElevenLabsVoice}
                 value={elevenLabsParam.voiceId}
@@ -395,62 +341,6 @@ export const Settings = ({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div className="my-16 typography-20 font-bold">
-              Voice Model
-            </div>
-            <div className="my-8">
-              <select className="h-40 px-8 w-full bg-surface3 hover:bg-surface3-hover rounded-4"
-                id="model-dropdown"
-                onChange={handleVoiceModelChange}
-                value={elevenLabsParam.modelId || "eleven_monolingual_v1"}
-              >
-                {elevenLabsModels.map((model) => (
-                  <option key={model.model_id} value={model.model_id}>
-                    {model.name} {model.token_limit ? `(${model.token_limit.toLocaleString()} tokens)` : ''}
-                  </option>
-                ))}
-                {elevenLabsModels.length === 0 && (
-                  <>
-                    <option value="eleven_monolingual_v1">Eleven Monolingual v1</option>
-                    <option value="eleven_multilingual_v2">Eleven Multilingual v2</option>
-                    <option value="eleven_turbo_v2">Eleven Turbo v2</option>
-                  </>
-                )}
-              </select>
-            </div>
-            <div className="my-16">
-              <div className="typography-16 font-semibold mb-2">Voice Stability: {voiceStability.toFixed(2)}</div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={voiceStability}
-                onChange={handleStabilityChange}
-                className="w-full"
-              />
-              <div className="text-xs flex justify-between mt-1">
-                <span>More variation (0.00)</span>
-                <span>More stable (1.00)</span>
-              </div>
-            </div>
-            <div className="my-16">
-              <div className="typography-16 font-semibold mb-2">Similarity Boost: {voiceSimilarityBoost.toFixed(2)}</div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={voiceSimilarityBoost}
-                onChange={handleSimilarityBoostChange}
-                className="w-full"
-              />
-              <div className="text-xs flex justify-between mt-1">
-                <span>Less similar (0.00)</span>
-                <span>More similar (1.00)</span>
-              </div>
             </div>
           </div>
         </div>
