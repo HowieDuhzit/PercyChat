@@ -12,9 +12,7 @@ import { SYSTEM_PROMPT } from "@/features/constants/systemPromptConstants";
 import { KoeiroParam, DEFAULT_KOEIRO_PARAM } from "@/features/constants/koeiroParam";
 import { getChatResponseStream, generateImage } from "@/features/chat/openAiChat";
 import { M_PLUS_2, Montserrat } from "next/font/google";
-import { Introduction } from "@/components/introduction";
 import { Menu } from "@/components/menu";
-//import { GitHubLink } from "@/components/githubLink";
 import { Meta } from "@/components/meta";
 import { ElevenLabsParam, DEFAULT_ELEVEN_LABS_PARAM } from "@/features/constants/elevenLabsParam";
 import { buildUrl } from "@/utils/buildUrl";
@@ -476,15 +474,16 @@ export default function Home() {
     localStorage.setItem('hideActionPrompts', checked.toString());
   };
 
+  const handleChangeElevenLabsParam = useCallback(
+    (param: Partial<ElevenLabsParam>) => {
+      setElevenLabsParam((prev) => ({ ...prev, ...param }));
+    },
+    []
+  );
+
   return (
     <div className={`${m_plus_2.variable} ${montserrat.variable}`}>
       <Meta />
-      <Introduction
-        openAiKey={openAiKey}
-        onChangeAiKey={setOpenAiKey}
-        elevenLabsKey={elevenLabsKey}
-        onChangeElevenLabsKey={setElevenLabsKey}
-      />
       <VrmViewer />
       {generatedImage && (
         <div className="absolute z-20 bottom-24 right-24 max-w-md">
@@ -531,7 +530,7 @@ export default function Home() {
         onChangeElevenLabsKey={setElevenLabsKey}
         onChangeSystemPrompt={setSystemPrompt}
         onChangeChatLog={handleChangeChatLog}
-        onChangeElevenLabsParam={setElevenLabsParam}
+        onChangeElevenLabsParam={handleChangeElevenLabsParam}
         onChangeKoeiromapParam={setKoeiroParam}
         handleClickResetChatLog={() => setChatLog([])}
         handleClickResetSystemPrompt={() => setSystemPrompt(SYSTEM_PROMPT)}
@@ -543,7 +542,6 @@ export default function Home() {
         onChangeModel={handleModelChange}
         onChangeHideActionPrompts={handleHideActionPromptsChange}
       />
-      {/* <GitHubLink /> */}
     </div>
   );
 }
