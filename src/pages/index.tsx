@@ -475,7 +475,7 @@ export default function Home() {
   };
 
   return (
-    <div className={`${m_plus_2.variable} ${montserrat.variable}`}>
+    <div className={`${m_plus_2.variable} ${montserrat.variable}`} lang="en">
       <Meta />
       <VrmViewer />
       {generatedImage && (

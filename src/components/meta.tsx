@@ -16,6 +16,8 @@ export const Meta = () => {
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={imageUrl} />
+      <meta httpEquiv="Content-Language" content="en" />
+      <meta name="language" content="English" />
     </Head>
   );
 };
