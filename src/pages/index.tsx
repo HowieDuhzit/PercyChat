@@ -474,6 +474,27 @@ export default function Home() {
     localStorage.setItem('hideActionPrompts', checked.toString());
   };
 
+  // Handler for changing ElevenLabs parameters
+  const handleElevenLabsParamChange = useCallback((param: ElevenLabsParam) => {
+    setElevenLabsParam(param);
+    // Save to localStorage in the next tick to avoid UI lag
+    process.nextTick(() => {
+      localStorage.setItem(
+        "elevenlabsParam",
+        JSON.stringify(param)
+      );
+    });
+  }, []);
+
+  // Handler for changing ElevenLabs voice specifically (wrapper around param change)
+  const handleElevenLabsVoiceChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newVoiceId = event.target.value;
+    setElevenLabsParam(prev => ({
+      ...prev,
+      voiceId: newVoiceId
+    }));
+  }, []);
+
   return (
     <div className={`${m_plus_2.variable} ${montserrat.variable}`}>
       <Meta />
@@ -521,9 +542,10 @@ export default function Home() {
         hideActionPrompts={hideActionPrompts}
         onChangeAiKey={setOpenAiKey}
         onChangeElevenLabsKey={setElevenLabsKey}
+        onChangeElevenLabsVoice={handleElevenLabsVoiceChange}
+        onChangeElevenLabsParam={handleElevenLabsParamChange}
         onChangeSystemPrompt={setSystemPrompt}
         onChangeChatLog={handleChangeChatLog}
-        onChangeElevenLabsParam={setElevenLabsParam}
         onChangeKoeiromapParam={setKoeiroParam}
         handleClickResetChatLog={() => setChatLog([])}
         handleClickResetSystemPrompt={() => setSystemPrompt(SYSTEM_PROMPT)}

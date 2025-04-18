@@ -1,9 +1,11 @@
-import { wait } from "@/utils/wait";
-import { synthesizeVoice } from "../elevenlabs/elevenlabs";
-import { Viewer } from "../vrmViewer/viewer";
+import { CharacterCompositeLayer, setEye, setMouth, stopAnimation } from "../vrmViewer/animationControls";
 import { Screenplay } from "./messages";
 import { Talk } from "./messages";
+import { synthesizeVoice } from "../elevenlabs/elevenlabs";
+import { debounce } from "../../utils/debounce";
 import { ElevenLabsParam } from "../constants/elevenLabsParam";
+import { wait } from "../../utils/wait";
+import { Viewer } from "../vrmViewer/viewer";
 
 const createSpeakCharacter = () => {
   let lastTime = 0;
@@ -56,22 +58,18 @@ export const fetchAudio = async (
   talk: Talk, 
   elevenLabsKey: string,
   elevenLabsParam: ElevenLabsParam,
-  ): Promise<ArrayBuffer> => {
-  const ttsVoice = await synthesizeVoice(
-    talk.message,
-    talk.speakerX,
-    talk.speakerY,
-    talk.style,
-    elevenLabsKey,
-    elevenLabsParam
-  );
-  const url = ttsVoice.audio;
-
-  if (url == null) {
-    throw new Error("Something went wrong");
+): Promise<ArrayBuffer> => {
+  try {
+    // Use synthesizeVoice with updated parameters
+    const audioBuffer = await synthesizeVoice(
+      talk.message,
+      elevenLabsKey,
+      elevenLabsParam
+    );
+    
+    return audioBuffer;
+  } catch (error) {
+    console.error("Error fetching audio:", error);
+    throw error;
   }
-
-  const resAudio = await fetch(url);
-  const buffer = await resAudio.arrayBuffer();
-  return buffer;
 };
