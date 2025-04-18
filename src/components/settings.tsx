@@ -14,6 +14,7 @@ import { getVoices } from "@/features/elevenlabs/elevenlabs";
 import { ElevenLabsParam } from "@/features/constants/elevenLabsParam";
 import { RestreamTokens } from "./restreamTokens";
 import Cookies from 'js-cookie';
+import { fetchOpenRouterModels } from "@/features/chat/openAiChat";
 
 type Props = {
   openAiKey: string;
@@ -23,12 +24,16 @@ type Props = {
   chatLog: Message[];
   elevenLabsParam: ElevenLabsParam;
   koeiroParam: KoeiroParam;
+  selectedModel: string;
+  hideActionPrompts: boolean;
   onClickClose: () => void;
   onChangeAiKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeOpenRouterKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeElevenLabsKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeElevenLabsVoice: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   onChangeSystemPrompt: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onChangeModel: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChangeHideActionPrompts: (checked: boolean) => void;
   onChangeChatLog: (index: number, text: string) => void;
   onChangeKoeiroParam: (x: number, y: number) => void;
   onClickOpenVrmFile: () => void;
@@ -40,6 +45,25 @@ type Props = {
   onTokensUpdate: (tokens: any) => void;
   onChatMessage: (message: string) => void;
 };
+
+// New interface for OpenRouter models
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  pricing: {
+    prompt: string;
+    completion: string;
+    image?: string;
+    [key: string]: string | undefined;
+  };
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+  description?: string;
+  context_length?: number;
+}
+
 export const Settings = ({
   openAiKey,
   elevenLabsKey,
@@ -48,6 +72,8 @@ export const Settings = ({
   systemPrompt,
   elevenLabsParam,
   koeiroParam,
+  selectedModel,
+  hideActionPrompts,
   onClickClose,
   onChangeSystemPrompt,
   onChangeAiKey,
@@ -55,6 +81,8 @@ export const Settings = ({
   onChangeElevenLabsKey,
   onChangeElevenLabsVoice,
   onChangeChatLog,
+  onChangeModel,
+  onChangeHideActionPrompts,
   onChangeKoeiroParam,
   onClickOpenVrmFile,
   onClickResetChatLog,
@@ -67,6 +95,8 @@ export const Settings = ({
 }: Props) => {
 
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
+  const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     // Check if ElevenLabs API key exists before fetching voices
@@ -80,6 +110,27 @@ export const Settings = ({
       });
     }
   }, [elevenLabsKey]); // Added elevenLabsKey as a dependency
+
+  // Fetch models when OpenRouter key changes
+  useEffect(() => {
+    const getModels = async () => {
+      if (!openRouterKey) return;
+      
+      setLoading(true);
+      try {
+        const models = await fetchOpenRouterModels(openRouterKey);
+        if (models && Array.isArray(models)) {
+          setAvailableModels(models);
+        }
+      } catch (error) {
+        console.error("Error fetching models:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    getModels();
+  }, [openRouterKey]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -97,6 +148,18 @@ export const Settings = ({
   const handleRemoveBackground = () => {
     onChangeBackgroundImage('');
     localStorage.removeItem('backgroundImage');
+  };
+
+  // Check if a model is free based on its pricing
+  const isModelFree = (model: OpenRouterModel): boolean => {
+    if (!model.pricing) return false;
+    return Object.values(model.pricing).every(price => price === "0");
+  };
+
+  // Check if a model supports image generation
+  const supportsImageGeneration = (model: OpenRouterModel): boolean => {
+    if (!model.architecture?.output_modalities) return false;
+    return model.architecture.output_modalities.includes("image");
   };
 
   return (
@@ -126,6 +189,102 @@ export const Settings = ({
                 url="https://openrouter.ai/"
                 label="OpenRouter website"
               />. By default, this app uses its own OpenRouter API key for people to try things out easily, but that may run of credits and need to be refilled.
+            </div>
+          </div>
+          <div className="my-24">
+            <div className="my-16 typography-20 font-bold">Model Selection</div>
+            <div className="my-8">
+              <select 
+                className="h-40 px-8 w-full bg-surface3 hover:bg-surface3-hover rounded-4"
+                id="model-dropdown"
+                onChange={onChangeModel}
+                value={selectedModel}
+                disabled={loading}
+              >
+                {loading ? (
+                  <option value="">Loading models...</option>
+                ) : availableModels.length > 0 ? (
+                  [
+                    // Group models by provider
+                    ...Object.entries(
+                      availableModels.reduce((acc, model) => {
+                        const provider = model.id.split('/')[0];
+                        if (!acc[provider]) acc[provider] = [];
+                        acc[provider].push(model);
+                        return acc;
+                      }, {} as Record<string, OpenRouterModel[]>)
+                    ).map(([provider, models]) => (
+                      <optgroup key={provider} label={provider.charAt(0).toUpperCase() + provider.slice(1)}>
+                        {models.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name} 
+                            {isModelFree(model) ? " (Free)" : ""} 
+                            {supportsImageGeneration(model) ? " (Images)" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  ]
+                ) : (
+                  // Fallback to hardcoded models
+                  <>
+                    <option value="anthropic/claude-3.5-sonnet:beta">Claude 3.5 Sonnet</option>
+                    <option value="anthropic/claude-3-opus:beta">Claude 3 Opus</option>
+                    <option value="anthropic/claude-3-sonnet:beta">Claude 3 Sonnet</option>
+                    <option value="anthropic/claude-3-haiku:beta">Claude 3 Haiku</option>
+                    <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                    <option value="openai/gpt-4o">GPT-4o</option>
+                    <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    <option value="google/gemini-1.5-pro">Gemini 1.5 Pro</option>
+                    <option value="google/gemini-flash-1.5-exp">Gemini Flash</option>
+                    <option value="meta-llama/llama-3-70b-instruct">Llama 3 70B</option>
+                    <option value="meta-llama/llama-3-8b-instruct">Llama 3 8B</option>
+                    <option value="mistralai/mistral-large">Mistral Large</option>
+                    <option value="mistralai/mistral-small">Mistral Small</option>
+                    <option value="cohere/command-r-plus">Cohere Command R+</option>
+                    <option value="cohere/command-r">Cohere Command R</option>
+                    <option value="stability/stable-diffusion-3">Stable Diffusion 3 (Images)</option>
+                  </>
+                )}
+              </select>
+            </div>
+            <div>
+              Select which AI model to use for chat responses.
+              {availableModels.length > 0 && selectedModel && (
+                <div className="mt-8 text-sm">
+                  {(() => {
+                    const model = availableModels.find(m => m.id === selectedModel);
+                    if (!model) return null;
+                    return (
+                      <>
+                        <div><strong>Description:</strong> {model.description || "No description available"}</div>
+                        <div><strong>Context length:</strong> {model.context_length?.toLocaleString() || "Unknown"} tokens</div>
+                        <div><strong>Pricing:</strong> {isModelFree(model) ? "Free" : 
+                          `$${parseFloat(model.pricing.prompt) * 1000} per 1K prompt tokens, $${parseFloat(model.pricing.completion) * 1000} per 1K completion tokens`}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="my-24">
+            <div className="my-16 typography-20 font-bold">Display Settings</div>
+            <div className="flex items-center my-8">
+              <input
+                type="checkbox"
+                id="hide-action-prompts"
+                checked={hideActionPrompts}
+                onChange={(e) => onChangeHideActionPrompts(e.target.checked)}
+                className="mr-8 h-16 w-16"
+              />
+              <label htmlFor="hide-action-prompts" className="cursor-pointer">
+                Hide action prompts (like [happy], [sad]) in chat responses
+              </label>
+            </div>
+            <div>
+              When enabled, this will hide emotional tags like [happy] or [sad] from displaying in chat responses.
             </div>
           </div>
           <div className="my-24">

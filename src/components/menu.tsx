@@ -16,12 +16,16 @@ type Props = {
   elevenLabsParam: ElevenLabsParam;
   koeiroParam: KoeiroParam;
   assistantMessage: string;
+  selectedModel: string;
+  hideActionPrompts: boolean;
   onChangeSystemPrompt: (systemPrompt: string) => void;
   onChangeAiKey: (key: string) => void;
   onChangeElevenLabsKey: (key: string) => void;
   onChangeChatLog: (index: number, text: string) => void;
   onChangeElevenLabsParam: (param: ElevenLabsParam) => void;
   onChangeKoeiromapParam: (param: KoeiroParam) => void;
+  onChangeModel: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  onChangeHideActionPrompts: (checked: boolean) => void;
   handleClickResetChatLog: () => void;
   handleClickResetSystemPrompt: () => void;
   backgroundImage: string;
@@ -40,12 +44,16 @@ export const Menu = ({
   elevenLabsParam,
   koeiroParam,
   assistantMessage,
+  selectedModel,
+  hideActionPrompts,
   onChangeSystemPrompt,
   onChangeAiKey,
   onChangeElevenLabsKey,
   onChangeChatLog,
   onChangeElevenLabsParam,
   onChangeKoeiromapParam,
+  onChangeModel,
+  onChangeHideActionPrompts,
   handleClickResetChatLog,
   handleClickResetSystemPrompt,
   backgroundImage,
@@ -173,6 +181,8 @@ export const Menu = ({
           chatLog={chatLog}
           systemPrompt={systemPrompt}
           koeiroParam={koeiroParam}
+          selectedModel={selectedModel}
+          hideActionPrompts={hideActionPrompts}
           onClickClose={() => setShowSettings(false)}
           onChangeAiKey={handleAiKeyChange}
           onChangeElevenLabsKey={handleElevenLabsKeyChange}
@@ -180,6 +190,8 @@ export const Menu = ({
           onChangeSystemPrompt={handleChangeSystemPrompt}
           onChangeChatLog={onChangeChatLog}
           onChangeKoeiroParam={handleChangeKoeiroParam}
+          onChangeModel={onChangeModel}
+          onChangeHideActionPrompts={onChangeHideActionPrompts}
           onClickOpenVrmFile={handleClickOpenVrmFile}
           onClickResetChatLog={handleClickResetChatLog}
           onClickResetSystemPrompt={handleClickResetSystemPrompt}

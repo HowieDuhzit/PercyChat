@@ -10,7 +10,7 @@ import { speakCharacter } from "@/features/messages/speakCharacter";
 import { MessageInputContainer } from "@/components/messageInputContainer";
 import { SYSTEM_PROMPT } from "@/features/constants/systemPromptConstants";
 import { KoeiroParam, DEFAULT_KOEIRO_PARAM } from "@/features/constants/koeiroParam";
-import { getChatResponseStream } from "@/features/chat/openAiChat";
+import { getChatResponseStream, generateImage } from "@/features/chat/openAiChat";
 import { M_PLUS_2, Montserrat } from "next/font/google";
 import { Introduction } from "@/components/introduction";
 import { Menu } from "@/components/menu";
@@ -54,6 +54,20 @@ export default function Home() {
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   // needed because AI speaking could involve multiple audios being played in sequence
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    // Try to load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selectedModel') || 'anthropic/claude-3.5-sonnet:beta';
+    }
+    return 'anthropic/claude-3.5-sonnet:beta';
+  });
+  const [hideActionPrompts, setHideActionPrompts] = useState<boolean>(() => {
+    // Try to load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hideActionPrompts') === 'true' || false;
+    }
+    return false;
+  });
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     // Try to load from localStorage on initial render
     if (typeof window !== 'undefined') {
@@ -61,6 +75,7 @@ export default function Home() {
     }
     return '';
   });
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.localStorage.getItem("chatVRMParams")) {
@@ -83,6 +98,14 @@ export default function Home() {
     const savedBackground = localStorage.getItem('backgroundImage');
     if (savedBackground) {
       setBackgroundImage(savedBackground);
+    }
+    const savedModel = localStorage.getItem('selectedModel');
+    if (savedModel) {
+      setSelectedModel(savedModel);
+    }
+    const savedHideActionPrompts = localStorage.getItem('hideActionPrompts');
+    if (savedHideActionPrompts) {
+      setHideActionPrompts(savedHideActionPrompts === 'true');
     }
   }, []);
 
@@ -167,6 +190,10 @@ export default function Home() {
       if (newMessage == null) return;
 
       setChatProcessing(true);
+      
+      // Enhanced image generation request detection
+      const isImageRequest = /^(draw|generate|create|make|sketch|paint|show me|render|illustrate) (a|an|the)?\s?(picture|image|photo|drawing|illustration|artwork|visual|portrait|scene|concept art|rendering) (of|about|showing|depicting|with|featuring)?\s?/i.test(newMessage.toLowerCase());
+      
       // Add user's message to chat log
       const messageLog: Message[] = [
         ...chatLog,
@@ -174,6 +201,100 @@ export default function Home() {
       ];
       setChatLog(messageLog);
 
+      if (isImageRequest) {
+        // For image generation requests
+        try {
+          // Find an appropriate image generation model
+          // First check if the current model supports image generation
+          let imageModel = "stability/stable-diffusion-3"; // Default fallback
+          
+          // If we're already using an image-capable model, use it
+          if (selectedModel.startsWith("stability/") || selectedModel.startsWith("openai/dall-e")) {
+            imageModel = selectedModel;
+          }
+          
+          // Clear any previous image
+          setGeneratedImage(null);
+          
+          // Add a message indicating image generation is in progress
+          const processingMessageLog: Message[] = [
+            ...messageLog,
+            { role: "assistant", content: "Generating image, please wait..." },
+          ];
+          setChatLog(processingMessageLog);
+          
+          // Generate the image
+          let localOpenRouterKey = openRouterKey;
+          if (!localOpenRouterKey) {
+            // fallback to free key for users to try things out
+            localOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!;
+          }
+          
+          console.log(`Generating image using model: ${imageModel}`);
+          const imageUrl = await generateImage(newMessage, localOpenRouterKey, imageModel);
+          
+          if (imageUrl) {
+            // The response might include just the URL or markdown with the URL
+            // Extract the URL from the response if needed
+            const extractedUrl = imageUrl.match(/https?:\/\/\S+\.(jpg|jpeg|png|webp|gif)/i)?.[0] || imageUrl;
+            
+            setGeneratedImage(extractedUrl);
+            
+            // Update the chat log with the image URL and make it clickable
+            const imageResponseLog: Message[] = [
+              ...messageLog,
+              { 
+                role: "assistant", 
+                content: `Here's the image you requested:\n\n![Generated Image](${extractedUrl})\n\nYou can click on the image to view it in full size.` 
+              },
+            ];
+            setChatLog(imageResponseLog);
+            
+            // Have the assistant speak about the image
+            const assistantResponse = `I've created that image for you. You can see it on screen now.`;
+            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[pleased]'] + assistantResponse], koeiroParam);
+            handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+              setAssistantMessage(assistantResponse);
+            });
+          } else {
+            // Handle image generation failure
+            const failureMessage = "I'm sorry, I couldn't generate that image. Please try again with a different description.";
+            const failureLog: Message[] = [
+              ...messageLog,
+              { role: "assistant", content: failureMessage },
+            ];
+            setChatLog(failureLog);
+            
+            // Have the assistant speak the failure message
+            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + failureMessage], koeiroParam);
+            handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+              setAssistantMessage(failureMessage);
+            });
+          }
+          
+          setChatProcessing(false);
+          return;
+        } catch (error) {
+          console.error("Image generation failed:", error);
+          const errorMessage = "There was an error generating the image. Please try again later.";
+          const errorLog: Message[] = [
+            ...messageLog,
+            { role: "assistant", content: errorMessage },
+          ];
+          setChatLog(errorLog);
+          
+          // Have the assistant speak the error message
+          const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + errorMessage], koeiroParam);
+          handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+            setAssistantMessage(errorMessage);
+          });
+          
+          setChatProcessing(false);
+          return;
+        }
+      }
+
+      // Regular text chat flow (non-image requests)
       // Process messages through MessageMiddleOut
       const messageProcessor = new MessageMiddleOut();
       const processedMessages = messageProcessor.process([
@@ -190,7 +311,13 @@ export default function Home() {
         localOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!;
       }
 
-      const stream = await getChatResponseStream(processedMessages, openAiKey, localOpenRouterKey).catch(
+      const stream = await getChatResponseStream(
+        processedMessages, 
+        openAiKey, 
+        localOpenRouterKey,
+        selectedModel,
+        hideActionPrompts
+      ).catch(
         (e) => {
           console.error(e);
           return null;
@@ -251,9 +378,10 @@ export default function Home() {
               continue;
             }
 
-            const aiText = `${tag} ${sentence}`;
-            const aiTalks = textsToScreenplay([aiText], koeiroParam);
-            aiTextLog += aiText;
+            // Use the tag for AI voice synthesis but possibly hide it in display
+            const aiText = hideActionPrompts ? sentence : `${tag} ${sentence}`;
+            const aiTalks = textsToScreenplay([`${tag} ${sentence}`], koeiroParam);
+            aiTextLog += hideActionPrompts ? sentence : `${tag} ${sentence}`;
 
             // 文ごとに音声を生成 & 再生、返答を表示
             const currentAssistantMessage = sentences.join(" ");
@@ -278,7 +406,7 @@ export default function Home() {
       setChatLog(messageLogAssistant);
       setChatProcessing(false);
     },
-    [systemPrompt, chatLog, handleSpeakAi, openAiKey, elevenLabsKey, elevenLabsParam, openRouterKey]
+    [systemPrompt, chatLog, handleSpeakAi, openAiKey, elevenLabsKey, elevenLabsParam, openRouterKey, selectedModel, hideActionPrompts, koeiroParam]
   );
 
   const handleTokensUpdate = useCallback((tokens: any) => {
@@ -317,6 +445,17 @@ export default function Home() {
     localStorage.setItem('openRouterKey', newKey);
   };
 
+  const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newModel = event.target.value;
+    setSelectedModel(newModel);
+    localStorage.setItem('selectedModel', newModel);
+  };
+
+  const handleHideActionPromptsChange = (checked: boolean) => {
+    setHideActionPrompts(checked);
+    localStorage.setItem('hideActionPrompts', checked.toString());
+  };
+
   return (
     <div className={`${m_plus_2.variable} ${montserrat.variable}`}>
       <Meta />
@@ -327,6 +466,32 @@ export default function Home() {
         onChangeElevenLabsKey={setElevenLabsKey}
       />
       <VrmViewer />
+      {generatedImage && (
+        <div className="absolute z-20 bottom-24 right-24 max-w-md">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+            <img 
+              src={generatedImage} 
+              alt="Generated" 
+              className="w-full h-auto"
+              onError={() => setGeneratedImage(null)}
+            />
+            <div className="p-2 flex justify-between">
+              <button 
+                className="text-sm text-blue-500 hover:text-blue-700"
+                onClick={() => window.open(generatedImage, '_blank')}
+              >
+                Open
+              </button>
+              <button 
+                className="text-sm text-red-500 hover:text-red-700"
+                onClick={() => setGeneratedImage(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <MessageInputContainer
         isChatProcessing={chatProcessing}
         onChatProcessStart={handleSendChat}
@@ -340,6 +505,8 @@ export default function Home() {
         elevenLabsParam={elevenLabsParam}
         koeiroParam={koeiroParam}
         assistantMessage={assistantMessage}
+        selectedModel={selectedModel}
+        hideActionPrompts={hideActionPrompts}
         onChangeAiKey={setOpenAiKey}
         onChangeElevenLabsKey={setElevenLabsKey}
         onChangeSystemPrompt={setSystemPrompt}
@@ -353,6 +520,8 @@ export default function Home() {
         onTokensUpdate={handleTokensUpdate}
         onChatMessage={handleSendChat}
         onChangeOpenRouterKey={handleOpenRouterKeyChange}
+        onChangeModel={handleModelChange}
+        onChangeHideActionPrompts={handleHideActionPromptsChange}
       />
       {/* <GitHubLink /> */}
     </div>

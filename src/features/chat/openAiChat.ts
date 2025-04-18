@@ -34,7 +34,9 @@ export async function getChatResponse(messages: Message[], apiKey: string) {
 export async function getChatResponseStream(
   messages: Message[],
   apiKey: string,
-  openRouterKey: string
+  openRouterKey: string,
+  selectedModel: string = 'anthropic/claude-3.5-sonnet:beta',
+  hideActionPrompts: boolean = false
 ) {
   // TODO: remove usages of apiKey in code
   /*
@@ -69,7 +71,7 @@ export async function getChatResponseStream(
             // "model": "cohere/command",
             // "model": "openai/gpt-3.5-turbo",
             //"model": "google/gemini-flash-1.5-exp",
-            "model": "anthropic/claude-3.5-sonnet:beta",
+            "model": selectedModel,
             "messages": messages,
             "temperature": 0.7,
             "max_tokens": 200,
@@ -123,7 +125,13 @@ export async function getChatResponseStream(
 
               try {
                 messages.forEach((message) => {
-                  const content = message.choices[0].delta.content;
+                  let content = message.choices[0].delta.content;
+
+                  // If hideActionPrompts is enabled, filter out action prompts like [happy] or [sad]
+                  if (hideActionPrompts && content) {
+                    // Remove text surrounded by square brackets
+                    content = content.replace(/\[.*?\]/g, '');
+                  }
 
                   controller.enqueue(content);
                 });
@@ -168,3 +176,148 @@ export async function getChatResponseStream(
 
   return stream;
 }
+
+// Add this function to fetch available models
+export const fetchOpenRouterModels = async (apiKey: string) => {
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/models", {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.data;
+  } catch (error) {
+    console.error("Failed to fetch models:", error);
+    return [];
+  }
+};
+
+// Add function to generate images using OpenRouter API
+export const generateImage = async (
+  prompt: string,
+  openRouterKey: string,
+  model: string = "stability/stable-diffusion-3"
+) => {
+  try {
+    // Different models require different request formats
+    let payload;
+    
+    if (model.startsWith("stability/")) {
+      // Stability AI models
+      payload = {
+        model: model,
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      };
+    } else if (model.startsWith("openai/dall-e")) {
+      // OpenAI DALL-E models
+      payload = {
+        model: model,
+        messages: [
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        // DALL-E specific parameters
+        quality: "hd",
+        size: "1024x1024",
+        style: "vivid"
+      };
+    } else {
+      // Generic approach for other models that might support image generation
+      payload = {
+        model: model,
+        messages: [
+          {
+            role: "user",
+            content: `Generate an image based on this description: ${prompt}`
+          }
+        ]
+      };
+    }
+
+    console.log("Generating image with model:", model);
+    console.log("Payload:", payload);
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${openRouterKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://chat.percyguin.co.uk/",
+        "X-Title": "Percy"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      throw new Error(`Error ${response.status}: ${response.statusText}. Details: ${errorDetails}`);
+    }
+
+    const data = await response.json();
+    console.log("Image generation response:", data);
+    
+    // The image URL should be in the response content
+    const content = data.choices[0]?.message?.content;
+    
+    // Various models return the image URL in different formats:
+    // 1. Direct URL
+    // 2. Markdown image format: ![description](url)
+    // 3. JSON with url field
+    // 4. HTML img tag
+    
+    // Try to extract URL using common patterns
+    if (content) {
+      // Check for markdown image syntax
+      const markdownMatch = content.match(/!\[.*?\]\((https?:\/\/\S+)\)/i);
+      if (markdownMatch && markdownMatch[1]) {
+        return markdownMatch[1];
+      }
+      
+      // Check for direct URL
+      const urlMatch = content.match(/(https?:\/\/\S+\.(jpg|jpeg|png|webp|gif))/i);
+      if (urlMatch && urlMatch[1]) {
+        return urlMatch[1];
+      }
+      
+      // Check for HTML image tag
+      const htmlMatch = content.match(/<img.*?src="(https?:\/\/\S+)".*?>/i);
+      if (htmlMatch && htmlMatch[1]) {
+        return htmlMatch[1];
+      }
+      
+      // Try to parse JSON if content looks like JSON
+      if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+        try {
+          const jsonContent = JSON.parse(content);
+          if (jsonContent.url) {
+            return jsonContent.url;
+          }
+        } catch (e) {
+          // Not valid JSON, continue with other extraction methods
+        }
+      }
+      
+      // Return the full content as a fallback
+      return content;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Failed to generate image:", error);
+    return null;
+  }
+};
