@@ -44,22 +44,41 @@ export const textsToScreenplay = (
   texts: string[],
   koeiroParam: KoeiroParam
 ): Screenplay[] => {
+  console.log("textsToScreenplay received:", texts);
+  
   const screenplays: Screenplay[] = [];
   let prevExpression = "neutral";
   for (let i = 0; i < texts.length; i++) {
     const text = texts[i];
+    console.log(`Processing text[${i}]:`, text);
+    
+    // Skip empty inputs
+    if (!text || text.trim() === '') {
+      console.warn("Empty text input, skipping");
+      continue;
+    }
 
     const match = text.match(/\[(.*?)\]/);
+    console.log("Emotion tag match:", match);
 
     const tag = (match && match[1]) || prevExpression;
+    console.log("Selected tag:", tag);
 
-    const message = text.replace(/\[(.*?)\]/g, "");
+    const message = text.replace(/\[(.*?)\]/g, "").trim();
+    console.log("Message with tag removed:", message);
+    
+    // If message is empty after removing tags, use a default message
+    if (!message) {
+      console.warn("Message is empty after removing tags, using neutral expression");
+      continue;
+    }
 
     let expression = prevExpression;
     if (emotions.includes(tag as any)) {
       expression = tag;
       prevExpression = tag;
     }
+    console.log("Final expression:", expression);
 
     screenplays.push({
       expression: expression as EmotionType,
@@ -72,6 +91,7 @@ export const textsToScreenplay = (
     });
   }
 
+  console.log("Returning screenplays:", screenplays);
   return screenplays;
 };
 

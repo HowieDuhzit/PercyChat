@@ -40,9 +40,19 @@ export async function speakCharacter(
         console.log('Using voice ID:', elevenLabsParam.voiceId);
         console.log('Using model ID:', elevenLabsParam.modelId || 'default');
         
+        // Make sure scene.message is valid text
+        const messageText = scene.message ? scene.message.trim() : "";
+        if (!messageText) {
+          console.warn("Empty message text, skipping speech synthesis");
+          continue;
+        }
+        
+        console.log('Full scene object:', scene);
+        console.log('Final text being sent to ElevenLabs:', messageText);
+        
         // Get the audio blob from ElevenLabs API
         const blob = await speakText(
-          scene.message,
+          messageText,
           elevenLabsParam,
           elevenLabsKey
         );

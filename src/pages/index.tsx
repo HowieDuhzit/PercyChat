@@ -71,9 +71,11 @@ export default function Home() {
   const [hideActionPrompts, setHideActionPrompts] = useState<boolean>(() => {
     // Try to load from localStorage on initial render
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('hideActionPrompts') === 'true' || false;
+      const saved = localStorage.getItem('hideActionPrompts');
+      // If explicitly set to false in localStorage, use that; otherwise default to true
+      return saved === null ? true : saved === 'true';
     }
-    return false;
+    return true; // Default to true if window is not defined
   });
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     // Try to load from localStorage on initial render
@@ -295,7 +297,8 @@ export default function Home() {
             
             // Have the assistant speak about the image
             const assistantResponse = `I've created that image for you. You can see it on screen now.`;
-            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[pleased]'] + assistantResponse], koeiroParam);
+            const tagPrefix = hideActionPrompts ? '' : '[pleased] ';
+            const aiTalks = textsToScreenplay([tagPrefix + assistantResponse], koeiroParam);
             handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(assistantResponse);
             });
@@ -309,7 +312,8 @@ export default function Home() {
             setChatLog(failureLog);
             
             // Have the assistant speak the failure message
-            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + failureMessage], koeiroParam);
+            const tagPrefix = hideActionPrompts ? '' : '[apologetic] ';
+            const aiTalks = textsToScreenplay([tagPrefix + failureMessage], koeiroParam);
             handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(failureMessage);
             });
@@ -327,7 +331,8 @@ export default function Home() {
           setChatLog(errorLog);
           
           // Have the assistant speak the error message
-          const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + errorMessage], koeiroParam);
+          const tagPrefix = hideActionPrompts ? '' : '[apologetic] ';
+          const aiTalks = textsToScreenplay([tagPrefix + errorMessage], koeiroParam);
           handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
             setAssistantMessage(errorMessage);
           });
@@ -415,9 +420,11 @@ export default function Home() {
               continue;
             }
 
-            // Use the tag for AI voice synthesis but possibly hide it in display
-            // Always use the tag for voice synthesis
-            const aiTalks = textsToScreenplay([`${tag} ${sentence}`], koeiroParam);
+            // Fix: Properly construct the text with emotion tag
+            const textWithEmotion = tag ? `${tag} ${sentence}` : sentence;
+            console.log("Text with emotion tag:", textWithEmotion);
+            const aiTalks = textsToScreenplay([textWithEmotion], koeiroParam);
+            
             // Only add the tag to the displayed text if not hiding action prompts
             const displayText = hideActionPrompts ? sentence : `${tag} ${sentence}`;
             aiTextLog += displayText + " ";
