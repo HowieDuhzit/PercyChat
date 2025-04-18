@@ -26,6 +26,7 @@ type Props = {
   koeiroParam: KoeiroParam;
   selectedModel: string;
   hideActionPrompts: boolean;
+  refreshTrigger?: number;
   onClickClose: () => void;
   onChangeAiKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onChangeOpenRouterKey: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -74,6 +75,7 @@ export const Settings = ({
   koeiroParam,
   selectedModel,
   hideActionPrompts,
+  refreshTrigger = 0,
   onClickClose,
   onChangeSystemPrompt,
   onChangeAiKey,
@@ -111,15 +113,17 @@ export const Settings = ({
     }
   }, [elevenLabsKey]); // Added elevenLabsKey as a dependency
 
-  // Fetch models when OpenRouter key changes
+  // Fetch models when OpenRouter key changes or when settings panel opens
   useEffect(() => {
     const getModels = async () => {
       if (!openRouterKey) return;
       
       setLoading(true);
       try {
+        console.log('Fetching OpenRouter models...');
         const models = await fetchOpenRouterModels(openRouterKey);
         if (models && Array.isArray(models)) {
+          console.log(`Fetched ${models.length} models`);
           setAvailableModels(models);
         }
       } catch (error) {
@@ -130,7 +134,7 @@ export const Settings = ({
     };
     
     getModels();
-  }, [openRouterKey]);
+  }, [openRouterKey, refreshTrigger]); // Added refreshTrigger as a dependency
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

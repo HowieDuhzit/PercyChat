@@ -64,6 +64,7 @@ export const Menu = ({
 }: Props) => {
   const [showSettings, setShowSettings] = useState(false);
   const [showChatLog, setShowChatLog] = useState(false);
+  const [settingsRefreshTrigger, setSettingsRefreshTrigger] = useState(0);
   const { viewer } = useContext(ViewerContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +74,11 @@ export const Menu = ({
       onChangeBackgroundImage(savedBackground);
     }
   }, [onChangeBackgroundImage]);
+
+  const handleShowSettings = () => {
+    setSettingsRefreshTrigger(prev => prev + 1);
+    setShowSettings(true);
+  };
 
   const handleChangeSystemPrompt = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -151,7 +157,7 @@ export const Menu = ({
             iconName="24/Menu"
             label="Settings"
             isProcessing={false}
-            onClick={() => setShowSettings(true)}
+            onClick={handleShowSettings}
           ></IconButton>
           {showChatLog ? (
             <IconButton
@@ -200,6 +206,7 @@ export const Menu = ({
           onTokensUpdate={onTokensUpdate}
           onChatMessage={onChatMessage}
           onChangeOpenRouterKey={onChangeOpenRouterKey}
+          refreshTrigger={settingsRefreshTrigger}
         />
       )}
       {!showChatLog && assistantMessage && (

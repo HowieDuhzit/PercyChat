@@ -57,7 +57,16 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     // Try to load from localStorage on initial render
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('selectedModel') || 'anthropic/claude-3.5-sonnet:beta';
+      const savedModel = localStorage.getItem('selectedModel');
+      if (savedModel) return savedModel;
+      
+      // If not in localStorage, try environment variable
+      if (process.env.NEXT_PUBLIC_DEFAULT_MODEL) {
+        return process.env.NEXT_PUBLIC_DEFAULT_MODEL;
+      }
+      
+      // Default fallback
+      return 'anthropic/claude-3.5-sonnet:beta';
     }
     return 'anthropic/claude-3.5-sonnet:beta';
   });
@@ -89,11 +98,17 @@ export default function Home() {
     if (window.localStorage.getItem("elevenLabsKey")) {
       const key = window.localStorage.getItem("elevenLabsKey") as string;
       setElevenLabsKey(key);
+    } else if (process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY) {
+      // If no key in localStorage but env var exists, use it
+      setElevenLabsKey(process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY);
     }
     // load openrouter key from localStorage
     const savedOpenRouterKey = localStorage.getItem('openRouterKey');
     if (savedOpenRouterKey) {
       setOpenRouterKey(savedOpenRouterKey);
+    } else if (process.env.NEXT_PUBLIC_OPENROUTER_API_KEY) {
+      // If no key in localStorage but env var exists, use it
+      setOpenRouterKey(process.env.NEXT_PUBLIC_OPENROUTER_API_KEY);
     }
     const savedBackground = localStorage.getItem('backgroundImage');
     if (savedBackground) {
@@ -191,6 +206,20 @@ export default function Home() {
 
       setChatProcessing(true);
       
+      // Get API keys with fallbacks to environment variables
+      let localOpenRouterKey = openRouterKey;
+      if (!localOpenRouterKey) {
+        // fallback to free key for users to try things out
+        localOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!;
+      }
+      
+      // Get ElevenLabs key with fallback to environment variable
+      let localElevenLabsKey = elevenLabsKey;
+      if (!localElevenLabsKey) {
+        // fallback to shared key from environment variables
+        localElevenLabsKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '';
+      }
+      
       // Enhanced image generation request detection
       const isImageRequest = /^(draw|generate|create|make|sketch|paint|show me|render|illustrate) (a|an|the)?\s?(picture|image|photo|drawing|illustration|artwork|visual|portrait|scene|concept art|rendering) (of|about|showing|depicting|with|featuring)?\s?/i.test(newMessage.toLowerCase());
       
@@ -223,13 +252,6 @@ export default function Home() {
           ];
           setChatLog(processingMessageLog);
           
-          // Generate the image
-          let localOpenRouterKey = openRouterKey;
-          if (!localOpenRouterKey) {
-            // fallback to free key for users to try things out
-            localOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!;
-          }
-          
           console.log(`Generating image using model: ${imageModel}`);
           const imageUrl = await generateImage(newMessage, localOpenRouterKey, imageModel);
           
@@ -253,7 +275,7 @@ export default function Home() {
             // Have the assistant speak about the image
             const assistantResponse = `I've created that image for you. You can see it on screen now.`;
             const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[pleased]'] + assistantResponse], koeiroParam);
-            handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+            handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(assistantResponse);
             });
           } else {
@@ -267,7 +289,7 @@ export default function Home() {
             
             // Have the assistant speak the failure message
             const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + failureMessage], koeiroParam);
-            handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+            handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(failureMessage);
             });
           }
@@ -285,7 +307,7 @@ export default function Home() {
           
           // Have the assistant speak the error message
           const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + errorMessage], koeiroParam);
-          handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
+          handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
             setAssistantMessage(errorMessage);
           });
           
@@ -304,12 +326,6 @@ export default function Home() {
         },
         ...messageLog,
       ]);
-
-      let localOpenRouterKey = openRouterKey;
-      if (!localOpenRouterKey) {
-        // fallback to free key for users to try things out
-        localOpenRouterKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY!;
-      }
 
       const stream = await getChatResponseStream(
         processedMessages, 
@@ -379,14 +395,18 @@ export default function Home() {
             }
 
             // Use the tag for AI voice synthesis but possibly hide it in display
-            const aiText = hideActionPrompts ? sentence : `${tag} ${sentence}`;
+            // Always use the tag for voice synthesis
             const aiTalks = textsToScreenplay([`${tag} ${sentence}`], koeiroParam);
-            aiTextLog += hideActionPrompts ? sentence : `${tag} ${sentence}`;
+            // Only add the tag to the displayed text if not hiding action prompts
+            const displayText = hideActionPrompts ? sentence : `${tag} ${sentence}`;
+            aiTextLog += displayText + " ";
 
             // 文ごとに音声を生成 & 再生、返答を表示
             const currentAssistantMessage = sentences.join(" ");
-            handleSpeakAi(aiTalks[0], elevenLabsKey, elevenLabsParam, () => {
-              setAssistantMessage(currentAssistantMessage);
+            handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
+              setAssistantMessage(hideActionPrompts ? 
+                currentAssistantMessage.replace(/\[.*?\]\s*/g, '') : 
+                currentAssistantMessage);
             });
           }
         }

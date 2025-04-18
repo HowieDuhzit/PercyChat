@@ -55,8 +55,8 @@ export async function getChatResponseStream(
       try {
 
         const OPENROUTER_API_KEY = openRouterKey;
-        const YOUR_SITE_URL = 'https://chat.percyguin.co.uk/';
-        const YOUR_SITE_NAME = 'Percy';
+        const YOUR_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://chat.percyguin.co.uk/';
+        const YOUR_SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || 'Percy';
 
         let isStreamed = false;
         const generation = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -129,8 +129,9 @@ export async function getChatResponseStream(
 
                   // If hideActionPrompts is enabled, filter out action prompts like [happy] or [sad]
                   if (hideActionPrompts && content) {
-                    // Remove text surrounded by square brackets
-                    content = content.replace(/\[.*?\]/g, '');
+                    // Improved regex to handle various emotion/action tags
+                    // This will catch not just standalone tags but also tags followed by text
+                    content = content.replace(/\[.*?\](\s*)/g, '');
                   }
 
                   controller.enqueue(content);
@@ -256,8 +257,8 @@ export const generateImage = async (
       headers: {
         "Authorization": `Bearer ${openRouterKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://chat.percyguin.co.uk/",
-        "X-Title": "Percy"
+        "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "https://chat.percyguin.co.uk/",
+        "X-Title": process.env.NEXT_PUBLIC_SITE_NAME || "Percy"
       },
       body: JSON.stringify(payload)
     });
