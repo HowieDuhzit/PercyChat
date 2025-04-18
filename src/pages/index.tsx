@@ -71,11 +71,9 @@ export default function Home() {
   const [hideActionPrompts, setHideActionPrompts] = useState<boolean>(() => {
     // Try to load from localStorage on initial render
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('hideActionPrompts');
-      // If explicitly set to false in localStorage, use that; otherwise default to true
-      return saved === null ? true : saved === 'true';
+      return localStorage.getItem('hideActionPrompts') === 'true' || true;
     }
-    return true; // Default to true if window is not defined
+    return true; // Default to hiding action prompts
   });
   const [openRouterKey, setOpenRouterKey] = useState<string>(() => {
     // Try to load from localStorage on initial render
@@ -91,22 +89,8 @@ export default function Home() {
       const params = JSON.parse(
         window.localStorage.getItem("chatVRMParams") as string
       );
-      
-      console.log("Loading parameters from localStorage:", params);
-      
       setSystemPrompt(params.systemPrompt);
-      
-      // Make sure to correctly handle modelId when loading elevenLabsParam from localStorage
-      if (params.elevenLabsParam) {
-        const savedParam = params.elevenLabsParam;
-        // Ensure modelId is preserved from localStorage or set to default
-        if (!savedParam.modelId) {
-          savedParam.modelId = DEFAULT_ELEVEN_LABS_PARAM.modelId;
-        }
-        console.log("Setting elevenLabsParam from localStorage:", savedParam);
-        setElevenLabsParam(savedParam);
-      }
-      
+      setElevenLabsParam(params.elevenLabsParam);
       setChatLog(params.chatLog);
     }
     if (window.localStorage.getItem("elevenLabsKey")) {
@@ -140,12 +124,9 @@ export default function Home() {
 
   useEffect(() => {
     process.nextTick(() => {
-      const paramsToSave = { systemPrompt, elevenLabsParam, chatLog };
-      console.log("Saving to localStorage:", paramsToSave);
-      
       window.localStorage.setItem(
         "chatVRMParams",
-        JSON.stringify(paramsToSave)
+        JSON.stringify({ systemPrompt, elevenLabsParam, chatLog })
       )
 
       // store separately to be backward compatible with local storage data
@@ -186,12 +167,6 @@ export default function Home() {
       onStart?: () => void,
       onEnd?: () => void
     ) => {
-      console.log("Starting handleSpeakAi with parameters:", {
-        screenplay: screenplay,
-        hasElevenLabsKey: !!elevenLabsKey,
-        elevenLabsParam: elevenLabsParam
-      });
-      
       setIsAISpeaking(true);  // Set speaking state before starting
       try {
         await speakCharacter(
@@ -297,8 +272,7 @@ export default function Home() {
             
             // Have the assistant speak about the image
             const assistantResponse = `I've created that image for you. You can see it on screen now.`;
-            const tagPrefix = hideActionPrompts ? '' : '[pleased] ';
-            const aiTalks = textsToScreenplay([tagPrefix + assistantResponse], koeiroParam);
+            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[pleased]'] + assistantResponse], koeiroParam);
             handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(assistantResponse);
             });
@@ -312,8 +286,7 @@ export default function Home() {
             setChatLog(failureLog);
             
             // Have the assistant speak the failure message
-            const tagPrefix = hideActionPrompts ? '' : '[apologetic] ';
-            const aiTalks = textsToScreenplay([tagPrefix + failureMessage], koeiroParam);
+            const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + failureMessage], koeiroParam);
             handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
               setAssistantMessage(failureMessage);
             });
@@ -331,8 +304,7 @@ export default function Home() {
           setChatLog(errorLog);
           
           // Have the assistant speak the error message
-          const tagPrefix = hideActionPrompts ? '' : '[apologetic] ';
-          const aiTalks = textsToScreenplay([tagPrefix + errorMessage], koeiroParam);
+          const aiTalks = textsToScreenplay([[hideActionPrompts ? '' : '[apologetic]'] + errorMessage], koeiroParam);
           handleSpeakAi(aiTalks[0], localElevenLabsKey, elevenLabsParam, () => {
             setAssistantMessage(errorMessage);
           });
@@ -420,11 +392,9 @@ export default function Home() {
               continue;
             }
 
-            // Fix: Properly construct the text with emotion tag
-            const textWithEmotion = tag ? `${tag} ${sentence}` : sentence;
-            console.log("Text with emotion tag:", textWithEmotion);
-            const aiTalks = textsToScreenplay([textWithEmotion], koeiroParam);
-            
+            // Use the tag for AI voice synthesis but possibly hide it in display
+            // Always use the tag for voice synthesis
+            const aiTalks = textsToScreenplay([`${tag} ${sentence}`], koeiroParam);
             // Only add the tag to the displayed text if not hiding action prompts
             const displayText = hideActionPrompts ? sentence : `${tag} ${sentence}`;
             aiTextLog += displayText + " ";
@@ -504,30 +474,6 @@ export default function Home() {
     localStorage.setItem('hideActionPrompts', checked.toString());
   };
 
-  const handleChangeElevenLabsParam = useCallback(
-    (param: Partial<ElevenLabsParam>) => {
-      console.log("handleChangeElevenLabsParam called with:", param);
-      
-      const updatedParam = { ...elevenLabsParam, ...param };
-      console.log("New elevenLabsParam will be:", updatedParam);
-      
-      setElevenLabsParam(updatedParam);
-      
-      // Immediately save to localStorage for persistence
-      process.nextTick(() => {
-        window.localStorage.setItem(
-          "chatVRMParams",
-          JSON.stringify({ 
-            systemPrompt, 
-            elevenLabsParam: updatedParam, 
-            chatLog 
-          })
-        );
-      });
-    },
-    [elevenLabsParam, systemPrompt, chatLog]
-  );
-
   return (
     <div className={`${m_plus_2.variable} ${montserrat.variable}`}>
       <Meta />
@@ -577,7 +523,7 @@ export default function Home() {
         onChangeElevenLabsKey={setElevenLabsKey}
         onChangeSystemPrompt={setSystemPrompt}
         onChangeChatLog={handleChangeChatLog}
-        onChangeElevenLabsParam={handleChangeElevenLabsParam}
+        onChangeElevenLabsParam={setElevenLabsParam}
         onChangeKoeiromapParam={setKoeiroParam}
         handleClickResetChatLog={() => setChatLog([])}
         handleClickResetSystemPrompt={() => setSystemPrompt(SYSTEM_PROMPT)}

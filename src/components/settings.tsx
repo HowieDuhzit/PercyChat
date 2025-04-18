@@ -10,19 +10,11 @@ import {
   PRESET_D,
 } from "@/features/constants/koeiroParam";
 import { Link } from "./link";
-import { getVoices, getAvailableModels, getVoiceSettings } from "@/features/elevenlabs/elevenlabs";
+import { getVoices } from "@/features/elevenlabs/elevenlabs";
 import { ElevenLabsParam } from "@/features/constants/elevenLabsParam";
 import { RestreamTokens } from "./restreamTokens";
 import Cookies from 'js-cookie';
 import { fetchOpenRouterModels } from "@/features/chat/openAiChat";
-import { 
-  ELEVENLABS_MODELS, 
-  ElevenLabsModel, 
-  ElevenLabsVoice,
-  getVoiceLibrary,
-  searchVoiceLibrary,
-  addVoiceFromLibrary
-} from "@/features/elevenlabs/elevenlabsModels";
 
 type Props = {
   openAiKey: string;
@@ -53,8 +45,6 @@ type Props = {
   onRestreamTokensUpdate?: (tokens: { access_token: string; refresh_token: string; } | null) => void;
   onTokensUpdate: (tokens: any) => void;
   onChatMessage: (message: string) => void;
-  onChangeElevenLabsModel: (modelId: string) => void;
-  onSearchVoiceLibrary: (query: string) => void;
 };
 
 // New interface for OpenRouter models
@@ -104,21 +94,11 @@ export const Settings = ({
   onRestreamTokensUpdate = () => {},
   onTokensUpdate,
   onChatMessage,
-  onChangeElevenLabsModel,
-  onSearchVoiceLibrary,
 }: Props) => {
 
   const [elevenLabsVoices, setElevenLabsVoices] = useState<any[]>([]);
   const [availableModels, setAvailableModels] = useState<OpenRouterModel[]>([]);
   const [loading, setLoading] = useState(false);
-  
-  // Add new state for ElevenLabs
-  const [elevenlabsModels, setElevenlabsModels] = useState<ElevenLabsModel[]>(ELEVENLABS_MODELS);
-  const [voiceLibraryResults, setVoiceLibraryResults] = useState<ElevenLabsVoice[]>([]);
-  const [voiceSearchQuery, setVoiceSearchQuery] = useState('');
-  const [searchingVoices, setSearchingVoices] = useState(false);
-  const [selectedVoiceSettings, setSelectedVoiceSettings] = useState<any>(null);
-  const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
   // Check if keys are from environment variables
   const isOpenRouterKeyFromEnv = !openRouterKey || (openRouterKey === process.env.NEXT_PUBLIC_OPENROUTER_API_KEY && process.env.NEXT_PUBLIC_OPENROUTER_API_KEY);
@@ -127,7 +107,6 @@ export const Settings = ({
   useEffect(() => {
     // Check if ElevenLabs API key exists before fetching voices
     if (elevenLabsKey) {
-      // Fetch voices from the user's account
       getVoices(elevenLabsKey).then((data) => {
         console.log('getVoices');
         console.log(data);
@@ -135,24 +114,8 @@ export const Settings = ({
         const voices = data.voices;
         setElevenLabsVoices(voices);
       });
-      
-      // Also fetch available models
-      getAvailableModels(elevenLabsKey).then((models) => {
-        if (models && models.length > 0) {
-          setElevenlabsModels(models);
-        }
-      });
-      
-      // Fetch voice settings for the currently selected voice
-      if (elevenLabsParam?.voiceId) {
-        getVoiceSettings(elevenLabsKey, elevenLabsParam.voiceId).then((settings) => {
-          if (settings) {
-            setSelectedVoiceSettings(settings);
-          }
-        });
-      }
     }
-  }, [elevenLabsKey, elevenLabsParam?.voiceId]);
+  }, [elevenLabsKey]); // Added elevenLabsKey as a dependency
 
   // Fetch models when OpenRouter key changes or when settings panel opens
   useEffect(() => {
@@ -206,70 +169,6 @@ export const Settings = ({
     if (!model.architecture?.output_modalities) return false;
     return model.architecture.output_modalities.includes("image");
   };
-
-  // Add handler for model change
-  const handleElevenLabsModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const modelId = event.target.value;
-    console.log("Settings - handleElevenLabsModelChange called with modelId:", modelId);
-    // Update the model in the ElevenLabsParam
-    onChangeElevenLabsModel(modelId);
-  };
-  
-  // Add handler for voice library search
-  const handleVoiceLibrarySearch = async () => {
-    if (!elevenLabsKey || !voiceSearchQuery.trim()) return;
-    
-    setSearchingVoices(true);
-    try {
-      const results = await searchVoiceLibrary(elevenLabsKey, voiceSearchQuery);
-      setVoiceLibraryResults(results);
-    } catch (error) {
-      console.error("Error searching voice library:", error);
-    } finally {
-      setSearchingVoices(false);
-    }
-  };
-  
-  // Add handler for adding a voice from the library
-  const handleAddVoiceFromLibrary = async (voiceId: string) => {
-    if (!elevenLabsKey) return;
-    
-    try {
-      const success = await addVoiceFromLibrary(elevenLabsKey, voiceId);
-      if (success) {
-        // Refresh the voice list
-        const data = await getVoices(elevenLabsKey);
-        setElevenLabsVoices(data.voices || []);
-        
-        // Use the new voice
-        onChangeElevenLabsVoice({ target: { value: voiceId } } as React.ChangeEvent<HTMLSelectElement>);
-      }
-    } catch (error) {
-      console.error("Error adding voice from library:", error);
-    }
-  };
-  
-  // Add handler for playing voice preview
-  const handlePlayVoicePreview = (previewUrl: string) => {
-    if (previewAudio) {
-      previewAudio.pause();
-      previewAudio.src = '';
-    }
-    
-    const audio = new Audio(previewUrl);
-    audio.play();
-    setPreviewAudio(audio);
-  };
-  
-  // Cleanup audio on unmount
-  useEffect(() => {
-    return () => {
-      if (previewAudio) {
-        previewAudio.pause();
-        previewAudio.src = '';
-      }
-    };
-  }, [previewAudio]);
 
   return (
     <div className="absolute z-40 w-full h-full bg-white/80 backdrop-blur ">
@@ -423,63 +322,18 @@ export const Settings = ({
               )}
             </div>
           </div>
-          <div className="my-24">
-            <div className="my-16 typography-20 font-bold">Voice Model</div>
-            <div className="my-8">
-              <select 
-                className="h-40 px-8 w-full bg-surface3 hover:bg-surface3-hover rounded-4"
-                id="model-dropdown"
-                onChange={handleElevenLabsModelChange}
-                value={elevenLabsParam.modelId || "eleven_multilingual_v2"}
-                disabled={!elevenLabsKey}
-              >
-                {elevenlabsModels.map((model) => (
-                  <option key={model.modelId} value={model.modelId}>
-                    {model.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              Select which ElevenLabs model to use for text-to-speech. Different models offer various trade-offs between quality and speed.
-            </div>
-            {elevenLabsParam.modelId && (
-              <div className="mt-4 text-sm p-4 bg-gray-100 rounded-md">
-                {(() => {
-                  const model = elevenlabsModels.find(m => m.modelId === elevenLabsParam.modelId);
-                  if (!model) return null;
-                  return (
-                    <>
-                      <div className="font-semibold">{model.name}</div>
-                      <div>{model.description}</div>
-                      {model.languages && (
-                        <div>Supports {model.languages} languages</div>
-                      )}
-                      {model.maxCharacters && (
-                        <div>Max text length: {model.maxCharacters} characters</div>
-                      )}
-                      {model.latency && (
-                        <div>Latency: {model.latency}</div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-          <div className="my-24">
+          <div className="my-40">
             <div className="my-16 typography-20 font-bold">
               Voice Selection
             </div>
             <div className="my-16">
-              Select among the voices in your ElevenLabs account (including custom voices):
+              Select among the voices in ElevenLabs (including custom voices):
             </div>
             <div className="my-8">
-              <select className="h-40 px-8 w-full"
+              <select className="h-40 px-8"
                 id="select-dropdown"
                 onChange={onChangeElevenLabsVoice}
                 value={elevenLabsParam.voiceId}
-                disabled={!elevenLabsKey}
               >
                 {elevenLabsVoices.map((voice, index) => (
                   <option key={index} value={voice.voice_id}>
@@ -487,80 +341,6 @@ export const Settings = ({
                   </option>
                 ))}
               </select>
-            </div>
-            
-            {selectedVoiceSettings && (
-              <div className="mt-4 mb-8 p-4 bg-gray-100 rounded-md">
-                <div className="font-semibold mb-2">Voice Settings</div>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>Stability: {selectedVoiceSettings.stability?.toFixed(2) || "Default"}</div>
-                  <div>Similarity Boost: {selectedVoiceSettings.similarity_boost?.toFixed(2) || "Default"}</div>
-                </div>
-              </div>
-            )}
-            
-            <div className="mt-8">
-              <div className="font-semibold mb-2">Search Voice Library</div>
-              <div className="flex items-center">
-                <input
-                  type="text"
-                  placeholder="Search for voices by name, keyword..."
-                  value={voiceSearchQuery}
-                  onChange={(e) => setVoiceSearchQuery(e.target.value)}
-                  className="px-16 py-8 w-full h-40 bg-surface3 hover:bg-surface3-hover rounded-4 text-ellipsis"
-                  disabled={!elevenLabsKey}
-                />
-                <button
-                  onClick={handleVoiceLibrarySearch}
-                  disabled={!elevenLabsKey || searchingVoices || !voiceSearchQuery.trim()}
-                  className="ml-2 px-4 py-2 bg-blue-500 text-white rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {searchingVoices ? "Searching..." : "Search"}
-                </button>
-              </div>
-              
-              {voiceLibraryResults.length > 0 && (
-                <div className="mt-4">
-                  <div className="font-semibold mb-2">Search Results ({voiceLibraryResults.length})</div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {voiceLibraryResults.map((voice) => (
-                      <div key={voice.voice_id} className="p-3 border-b border-gray-200 flex flex-col">
-                        <div className="flex justify-between items-start">
-                          <div className="font-medium">{voice.name}</div>
-                          <div className="flex space-x-2">
-                            {voice.preview_url && (
-                              <button
-                                onClick={() => handlePlayVoicePreview(voice.preview_url!)}
-                                className="text-sm text-blue-500 hover:text-blue-700"
-                              >
-                                Preview
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleAddVoiceFromLibrary(voice.voice_id)}
-                              className="text-sm text-green-500 hover:text-green-700"
-                            >
-                              Use Voice
-                            </button>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {voice.description || "No description"}
-                        </div>
-                        {voice.labels && Object.keys(voice.labels).length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {Object.entries(voice.labels).map(([key, value]) => (
-                              <span key={key} className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full">
-                                {key}: {value}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

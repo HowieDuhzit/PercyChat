@@ -1,106 +1,77 @@
+import { wait } from "@/utils/wait";
+import { synthesizeVoice } from "../elevenlabs/elevenlabs";
+import { Viewer } from "../vrmViewer/viewer";
 import { Screenplay } from "./messages";
-import { speakText } from "@/features/elevenlabs/elevenlabs";
+import { Talk } from "./messages";
 import { ElevenLabsParam } from "../constants/elevenLabsParam";
 
-export async function speakCharacter(
-  screenplay: Screenplay,
+const createSpeakCharacter = () => {
+  let lastTime = 0;
+  let prevFetchPromise: Promise<unknown> = Promise.resolve();
+  let prevSpeakPromise: Promise<unknown> = Promise.resolve();
+
+  return (
+    screenplay: Screenplay,
+    elevenLabsKey: string,
+    elevenLabsParam: ElevenLabsParam,
+    viewer: Viewer,
+    onStart?: () => void,
+    onComplete?: () => void
+  ) => {
+    const fetchPromise = prevFetchPromise.then(async () => {
+      const now = Date.now();
+      if (now - lastTime < 1000) {
+        await wait(1000 - (now - lastTime));
+      }
+
+      // if elevenLabsKey is not set, do not fetch audio
+      if (!elevenLabsKey || elevenLabsKey.trim() == "") {
+        console.log("elevenLabsKey is not set");
+        return null;
+      }
+
+      const buffer = await fetchAudio(screenplay.talk, elevenLabsKey, elevenLabsParam).catch(() => null);
+      lastTime = Date.now();
+      return buffer;
+    });
+
+    prevFetchPromise = fetchPromise;
+    prevSpeakPromise = Promise.all([fetchPromise, prevSpeakPromise]).then(([audioBuffer]) => {
+      onStart?.();
+      if (!audioBuffer) {
+        // pass along screenplay to change avatar expression
+        return viewer.model?.speak(null, screenplay);
+      }
+      return viewer.model?.speak(audioBuffer, screenplay);
+    });
+    prevSpeakPromise.then(() => {
+      onComplete?.();
+    });
+  };
+}
+
+export const speakCharacter = createSpeakCharacter();
+
+export const fetchAudio = async (
+  talk: Talk, 
   elevenLabsKey: string,
   elevenLabsParam: ElevenLabsParam,
-  viewer: any | null, // Use any for now until we have the correct type
-  onStart?: () => void,
-  onEnd?: () => void
-) {
-  if (!elevenLabsKey) {
-    console.log("No ElevenLabs API key provided.");
-    return;
-  }
-
-  console.log("speakCharacter function called with parameters:", {
-    screenplay: typeof screenplay === 'object' ? "screenplay object" : screenplay,
-    hasElevenLabsKey: !!elevenLabsKey,
+  ): Promise<ArrayBuffer> => {
+  const ttsVoice = await synthesizeVoice(
+    talk.message,
+    talk.speakerX,
+    talk.speakerY,
+    talk.style,
+    elevenLabsKey,
     elevenLabsParam
-  });
+  );
+  const url = ttsVoice.audio;
 
-  // Handle both array and single object format for screenplay
-  const scenes = Array.isArray(screenplay) ? screenplay : [screenplay];
-
-  for (let i = 0; i < scenes.length; i++) {
-    const scene = scenes[i];
-    if (viewer && scene.expression) {
-      // expressions are one of "Neutral", "Happy", "Angry", "Sad", or "Relaxed"
-      // not all models necessarily have all expressions defined
-      // We may want to map expressions to only those supported by the current model
-      if (viewer.expressionController) {
-        viewer.expressionController.setExpression(scene.expression);
-      }
-    }
-    if (elevenLabsKey && scene.message) {
-      try {
-        console.log('Sending text to ElevenLabs API:', scene.message);
-        console.log('Using voice ID:', elevenLabsParam.voiceId);
-        console.log('Using model ID:', elevenLabsParam.modelId || 'default');
-        
-        // Make sure scene.message is valid text
-        const messageText = scene.message ? scene.message.trim() : "";
-        if (!messageText) {
-          console.warn("Empty message text, skipping speech synthesis");
-          continue;
-        }
-        
-        console.log('Full scene object:', scene);
-        console.log('Final text being sent to ElevenLabs:', messageText);
-        
-        // Get the audio blob from ElevenLabs API
-        const blob = await speakText(
-          messageText,
-          elevenLabsParam,
-          elevenLabsKey
-        );
-        
-        // Create a URL for the audio blob
-        const url = URL.createObjectURL(blob);
-        
-        // Create and play the audio
-        const audio = new Audio(url);
-        
-        // Set up event listeners for audio
-        let hasStarted = false;
-        
-        audio.addEventListener("play", () => {
-          if (!hasStarted) {
-            console.log("Audio started playing");
-            hasStarted = true;
-            onStart?.();
-          }
-        });
-        
-        audio.addEventListener("ended", () => {
-          console.log("Audio finished playing");
-          URL.revokeObjectURL(url);
-          onEnd?.();
-        });
-        
-        // Start playback
-        const playPromise = audio.play();
-        
-        // Handle autoplay restrictions
-        if (playPromise !== undefined) {
-          playPromise.catch((error) => {
-            console.error("Playback failed:", error);
-            URL.revokeObjectURL(url);
-            onEnd?.();
-          });
-        }
-        
-        // Wait for audio to finish
-        await new Promise<void>((resolve) => {
-          audio.onended = () => resolve();
-        });
-        
-      } catch (error) {
-        console.error("Error during speech synthesis:", error);
-        onEnd?.();
-      }
-    }
+  if (url == null) {
+    throw new Error("Something went wrong");
   }
-}
+
+  const resAudio = await fetch(url);
+  const buffer = await resAudio.arrayBuffer();
+  return buffer;
+};

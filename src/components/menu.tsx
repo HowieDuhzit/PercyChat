@@ -110,27 +110,6 @@ export const Menu = ({
     [onChangeElevenLabsParam]
   );
 
-  const handleElevenLabsModelChange = useCallback(
-    (modelId: string) => {
-      console.log("Menu - handleElevenLabsModelChange called with modelId:", modelId);
-      console.log("Current elevenLabsParam:", elevenLabsParam);
-      
-      onChangeElevenLabsParam({
-        ...elevenLabsParam,
-        modelId: modelId
-      });
-    },
-    [onChangeElevenLabsParam, elevenLabsParam]
-  );
-  
-  const handleSearchVoiceLibrary = useCallback(
-    (query: string) => {
-      console.log("Searching voice library for:", query);
-      // This is a placeholder - the actual search is handled in the Settings component
-    },
-    []
-  );
-
   const handleChangeKoeiroParam = useCallback(
     (x: number, y: number) => {
       onChangeKoeiromapParam({
@@ -228,8 +207,6 @@ export const Menu = ({
           onChatMessage={onChatMessage}
           onChangeOpenRouterKey={onChangeOpenRouterKey}
           refreshTrigger={settingsRefreshTrigger}
-          onChangeElevenLabsModel={handleElevenLabsModelChange}
-          onSearchVoiceLibrary={handleSearchVoiceLibrary}
         />
       )}
       {!showChatLog && assistantMessage && (
